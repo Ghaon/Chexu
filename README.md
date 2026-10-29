@@ -1,125 +1,121 @@
 # 车序 Chexu
 
-用 LangGraph 写的一个二手车门店助手，后端是 FastAPI + PostgreSQL，前端是 React。可以通过对话查库存、比较车辆、读检测报告、生成报价，也可以用 Tavily 搜索外部资料。
+车序是一个面向二手车门店的 Agent 应用，主要用于销售选车和报价协作。销售可以通过对话筛选库存、比较车辆、查阅检测资料和准备报价，经理在审批中心处理报价申请。
 
-这是一个边学习边开发的项目。除了业务功能，主要在做 Agent 的执行控制：怎么限制工具权限，怎么处理审批和执行失败，以及多个 Agent 之间应该传递哪些上下文。目前用本地资料和评估任务验证这些流程。
+项目以门店库存和上传报告作为车辆信息来源，同时支持 Tavily 联网检索。一次需求可以单独查询，也可以拆成多个步骤执行；任务进度、资料引用和审批结果都在工作台中查看。
 
-当前版本：`0.14.0`。
+后端使用 **FastAPI、LangGraph 和 PostgreSQL**，前端使用 **React、TypeScript 和 Vite**。
 
-## 已有功能
+## 使用场景
 
-- 按预算和里程查询库存，比较候选车辆的当前售价和里程。
-- 上传车辆报告，通过本地 MCP 解析 PDF、DOCX、TXT、Markdown，回答中附带原文片段。
-- 生成报价预览。需要提交审批时暂停任务，由经理审核后继续执行。
-- 将复杂需求拆成多个步骤，交给子 Agent 执行；支持补充条件、修改计划和重排剩余步骤。
-- 保存用户确认的预算、用途和偏好，支持修改、删除。这里的用户是当前登录员工，还没有单独的客户档案。
-- 长对话接近输入容量时，整理较早的历史内容；原始消息继续保存在数据库里。
-- 通过 Tavily 搜索公开网页，展示摘要、链接和日期。
-- 员工登录、会话管理、后台任务、执行进度查看、取消和失败恢复。
+**按条件选车。** 输入预算和里程要求，从门店库存中筛选候选，再比较当前售价、里程等信息。后续可以继续引用会话中选中的车辆，不必重复输入全部条件。
 
-## Agent 是怎么运行的
+**核对车辆资料。** 上传检测或维保报告，读取相关片段，整理报告记录、未知信息和需要复检的事项。回答附带原文引用，方便销售回到资料中核对。
 
-请求先经过身份和会话归属检查。工作台提交的任务会存进 PostgreSQL 队列，由后台 Worker 执行，前端通过 SSE 接收进度。也保留了同步的 `/api/chat` 接口，方便调试。
+**准备和审核报价。** 为选定车辆生成报价预览，列明优惠和待确认项目。销售决定提交后，任务进入经理审批；审核通过并完成后续执行，才保存确认报价。
 
-普通任务的图比较简单：
+**查询外部信息。** 搜索车型资料、行业信息和公开政策，查看网页摘要、来源与日期。网页信息作为参考，与门店库存和车辆报告分别展示。
+
+例如，在工作台选择“任务协作”后，可以提出：
+
+> 从库存里找十万元以内、里程不超过六万公里的车，比较候选车辆。如果有检测报告，列出需要注意的记录，再为我选中的车辆生成报价预览，先不要提交审批。
+
+任务缺少车辆选择或必要资料时，可以补充信息后继续，也可以调整预算、候选车和剩余步骤。
+
+## 业务流程
+
+下面展示一条从选车到报价的典型路径。库存查询、报告解读和联网检索也可以单独使用。
 
 ```mermaid
-flowchart LR
-    Input[用户消息] --> Skill[选择技能]
-    Skill --> Context[整理模型上下文]
-    Context --> Model[调用模型]
-    Model -->|工具调用| Tools[权限与预算检查]
-    Tools --> Execute[执行工具]
-    Execute --> Context
-    Model -->|最终回答| Finish[整理结果并保存]
+flowchart TB
+    subgraph Selection["选车与资料核对"]
+        Request["销售输入条件<br/>预算、里程、候选车辆"] --> Inventory["筛选门店库存"]
+        Inventory --> Compare["比较候选车辆"]
+        Compare -->|直接查看| Result["查看候选结果与资料依据"]
+        Compare -->|需要核对报告| Report["读取检测资料<br/>列出记录与待核实事项"]
+        Report --> Result
+    end
+
+    subgraph Quotation["报价与人工审批"]
+        Preview["生成报价预览"] -->|销售提交审批| Review{"经理审核"}
+        Review -->|通过后继续执行| Saved["保存确认报价"]
+        Review -->|拒绝| Rejected["返回审核结果"]
+    end
+
+    Result -->|需要报价| Preview
 ```
 
-### 技能和工具
+报价预览可以直接查看，审批由销售另行发起。选车结果和报价结果都保留在对应会话中，已提交的审批可以在审批中心查看。
 
-技能放在 [`skills/`](skills/) 下，每个目录里有两个文件：
+## 工作台功能
 
-```text
-skill.toml    技能名称、版本、工具清单和调用上限
-SKILL.md      给模型的执行说明
+- **会话与任务**：多轮对话、历史会话、后台任务进度、取消和失败恢复。
+- **车辆资料**：录入车辆，关联上传 PDF、DOCX、TXT 或 Markdown 报告，查看报告片段。
+- **任务协作**：展示执行步骤，支持补充条件、修改目标、重排剩余任务。
+- **审批中心**：销售查看或取消自己的申请，经理审核报价。
+- **偏好记忆**：当前登录员工确认自己的预算、用途和偏好，支持查看、修改和删除。
+- **资料来源**：查看报告引用及联网检索返回的网页链接。
+
+销售与经理使用不同角色登录。库存按门店共享，会话和个人记忆按员工隔离。界面支持桌面三栏布局和手机访问。
+
+## 系统架构
+
+工作台提交后台任务，Worker 从 PostgreSQL 队列领取任务，再交给 Agent 执行。模型只能使用当前技能开放的工具，工具调用仍需经过后端检查。
+
+```mermaid
+flowchart TB
+    UI["React 工作台"] -->|任务提交与结果查询| API["FastAPI<br/>身份与会话检查"]
+    API -.->|SSE 执行进度| UI
+    API --> Queue["PostgreSQL 持久化任务队列"]
+    Queue --> Runtime["Worker / Agent Runtime"]
+
+    subgraph Agent["LangGraph 执行层"]
+        Lead["主 Agent<br/>技能与模型调用"]
+        Child["规划与子 Agent<br/>依赖步骤、独立模型上下文"]
+        Gate["工具执行中间件<br/>权限、调用次数、超时、取消"]
+        Lead -->|单项任务| Gate
+        Lead -->|组合任务| Child
+        Child --> Gate
+    end
+
+    Runtime --> Lead
+    Gate --> Business["库存 / 报价 / 记忆工具"]
+    Gate --> Parser["本地 MCP 报告解析"]
+    Gate --> Search["Tavily 搜索 API"]
+
+    Business --> Database["PostgreSQL<br/>业务数据、运行记录、检查点"]
+    Parser --> Files["本地报告文件"]
 ```
 
-启动时先注册元数据，选中技能后才加载正文。当前有库存匹配、车辆对比、报告解读、报价协作、任务协作、个人记忆和联网检索 7 个技能。
+主 Agent 和子 Agent 使用配置的模型服务，分别准备上下文。任务队列、业务表、运行记录和检查点共用 PostgreSQL，执行状态由 Runtime 保存和恢复。报告文件保存在本地目录；MCP 解析进程由后端按需启动。前端通过 SSE 接收执行阶段事件，任务结束后读取结构化结果。
 
-模型每次只能看到当前技能允许使用的工具。调用到达后端后，还会经过 [`middleware.py`](src/agent/middleware.py) 检查，不能靠模型自己遵守权限。运行时会限制调用次数和执行时间，也会检查取消请求。
+### Agent 执行设计
 
-技能正文和版本会随运行保存快照。恢复旧任务时使用原来的说明，同时检查工具是否仍然允许调用。
+**技能。** [`skills/`](skills/) 中有库存匹配、车辆对比、报告解读、报价协作、任务协作、个人记忆和联网检索 7 个技能。`skill.toml` 定义工具与调用上限，`SKILL.md` 提供执行说明。启动时加载元数据，选中技能后加载正文，并为运行保存版本快照。
 
-### 规划和子 Agent
+**规划与子 Agent。** 多步骤任务使用 `deal_review` 技能。主 Agent 提交结构化计划，子 Agent 使用各自的消息历史和检查点命名空间，只接收当前目标与声明依赖的结果。计划最多 6 步，独立的只读步骤最多 2 个并行，报价安排在最后。
 
-在工作台选择“任务协作”，或传入 `skill_id: "deal_review"`，模型会先提交结构化计划，再由主 Agent 委派子图执行。
+**运行控制。** 运行配置绑定员工身份、技能、调用预算和截止时间。工具中间件统一检查权限、额度、超时及取消请求。计划调整带有轮次和版本检查，避免重复或陈旧请求覆盖当前任务。
 
-每个子 Agent 有自己的消息历史和检查点命名空间。交接内容只包括当前目标、输入条件和依赖步骤的结果，不直接复制整段父会话。计划最多 6 步，无依赖的只读步骤最多 2 个并行；报价安排在最后。
+**审批与恢复。** 使用 LangGraph 检查点保存执行状态，支持报价审批暂停、审核后续接，以及失败后的显式恢复。恢复沿用累计调用预算；取消不撤销此前保存的确认报价。
 
-用户可以补充资料、改条件或重排剩余任务。调整请求带上计划版本和任务轮次，避免旧页面的操作覆盖新计划。相关代码在 [`planning.py`](src/agent/planning.py)、[`subagents.py`](src/agent/subagents.py) 和 [`plan_control.py`](src/agent/plan_control.py)。
+**记忆与上下文。** 模型提出的记忆需要用户确认后才会用于后续任务。长对话在模型调用前按容量整理较早的完整轮次，原始消息仍保存在数据库中；历史价格不会替代当前查询。
 
-### 审批和恢复
+**工具与资料。** 库存、报价和记忆通过业务工具访问。报告通过本地 MCP 解析并校验引用片段，公开资料通过 Tavily Search API 检索。网页与文档内容不具有修改工具权限或审批规则的能力。
 
-报价先生成预览，用户明确要求提交时才申请审批。经理审核期间，LangGraph 保存现场并暂停；审核后从检查点继续。
+**运行记录与评估。** 保存任务状态、模型及工具事件、调用次数和可用的 token 用量。仓库提供技能路由检查、隔离测试、数据库集成检查和真实模型任务评估。
 
-模型调用或工具执行失败时，也会保留运行记录，由用户手动恢复或结束本轮。恢复不会重新获得一份调用额度，之前已经用掉的次数仍然计入限制。取消任务不会撤销此前保存的报价。
-
-执行入口在 [`runtime.py`](src/agent/runtime.py)，检查点使用 PostgreSQL 的 `PostgresSaver`。
-
-### 记忆和长对话
-
-长期记忆按员工保存，目前只有预算、用途和偏好三类。模型可以提出待确认记录，确认操作由用户完成。未确认内容不会注入后续对话。
-
-长对话处理是另一套逻辑：模型调用前检查输入容量，按整轮整理较早的历史。现在用的是规则摘录，没有额外调用模型做摘要，也没有向量库。历史提到过的条件不会自动变成长期记忆，旧价格也不能当作当前报价。
-
-对应代码是 [`memories.py`](src/services/memories.py) 和 [`conversation_context.py`](src/agent/conversation_context.py)。
-
-### 报告和搜索
-
-报告解析走本地 `chexu-report-parser` MCP 服务，通过 stdio 通信，由后端按需启动。模型传报告编号，服务端负责找到对应文件。引用会检查是否来自实际读取的片段，但结论是否得到原文充分支持仍需要复核。
-
-Tavily 直接调用搜索 API，没有再套一层 MCP。结果作为网页参考返回，不会写成门店库存，也不能据此判断某辆车的事故情况。当前还没有专业估值或真实成交行情接口。
-
-## 目录
-
-```text
-Chexu/
-├─ src/
-│  ├─ agent/          # 图、运行时、技能、规划、上下文、工具
-│  ├─ api_view/       # FastAPI 接口
-│  ├─ services/       # 库存、任务、审批、记忆、搜索等服务
-│  ├─ domain/         # 数据结构和业务约束
-│  ├─ database/       # ORM、连接、检查点、员工管理
-│  ├─ mcp/            # 报告解析的 MCP 客户端和服务端
-│  ├─ reports/        # 文件校验、存储和解析
-│  ├─ evaluation/     # 任务评估
-│  └─ security.py     # 密码和令牌处理
-├─ frontend/          # React + TypeScript + Vite
-├─ skills/            # 技能说明和元数据
-├─ migrations/        # Alembic 迁移
-├─ tests/             # 测试与数据库集成检查
-├─ evals/             # 评估任务和样本
-├─ fixtures/          # 固定样例资料
-├─ scripts/           # 本地开发与评估脚本
-├─ docs/development/  # 开发记录
-├─ .env.example
-├─ pyproject.toml
-└─ uv.lock
-```
-
-业务数据、任务队列和检查点都放在 PostgreSQL，上传报告放在本地 `data/reports`。目前不需要另外部署 Redis 或向量数据库。
+主要实现集中在 [`src/agent/`](src/agent/)；业务接口和服务分别位于 [`src/api_view/`](src/api_view/) 与 [`src/services/`](src/services/)。
 
 ## 本地运行
 
-需要 Python 3.11～3.13、uv、Node.js 22.12+、npm 和已启动的 PostgreSQL。当前本地开发用的是 PostgreSQL 18.6。
+需要 Python **3.11～3.13**、uv、Node.js **22.12+**、npm 和 PostgreSQL。模型服务需要兼容 OpenAI 接口并支持工具调用；Tavily 密钥仅联网检索需要。
 
-模型服务需要兼容 OpenAI 接口，并支持工具调用。Tavily 密钥可选，不配置时仍可使用其他功能。
+以下命令以 Windows PowerShell 为例，从项目根目录执行。数据库应已启动，并创建好应用数据库与账号。完整准备步骤见 [本地开发与验证](docs/development/local-run.md)。
 
-下面以 Windows PowerShell 为例，命令从项目根目录执行。
-
-### 1. 依赖和配置
+### 配置后端
 
 ```powershell
-$env:UV_CACHE_DIR = Join-Path (Get-Location) ".cache/uv"
 uv sync --frozen
 
 if (-not (Test-Path .env)) {
@@ -127,118 +123,92 @@ if (-not (Test-Path .env)) {
 }
 ```
 
-在 `.env` 中填写自己的连接信息：
+在 `.env` 填写自己的配置：
 
 ```dotenv
 CHEXU_MODEL_BASE_URL=https://your-provider.example/v1
 CHEXU_MODEL_NAME=your-tool-calling-model
 CHEXU_MODEL_API_KEY=replace-with-your-key
 CHEXU_DATABASE_URL=postgresql+psycopg://chexu:replace-with-your-database-password@127.0.0.1:5432/chexu
-
-# 根据网络情况选择是否使用环境代理
-CHEXU_MODEL_USE_ENV_PROXY=true
-CHEXU_TAVILY_USE_ENV_PROXY=true
-
-# 联网检索需要，其他功能可留空
 CHEXU_TAVILY_API_KEY=
 ```
 
-其他选项见 [`.env.example`](.env.example)。配置从项目根目录读取，修改后重启后端生效。数据库密码含特殊字符时，需要在连接字符串中做 URL 编码。
+其余选项及代理开关见 [`.env.example`](.env.example)，配置变更在后端重启后生效。
 
-### 2. 数据库
-
-先创建 `chexu` 数据库和应用账号。已有可用数据库时，直接修改连接配置即可。
-
-例如在管理员的 `psql` 中执行：
-
-```text
-CREATE ROLE chexu LOGIN;
-\password chexu
-CREATE DATABASE chexu OWNER chexu;
-```
-
-`\password` 会提示输入密码。然后回到项目终端初始化：
+### 初始化数据库和员工账号
 
 ```powershell
 uv run python -m src.database.check
 uv run alembic upgrade head
 uv run python -m src.database.checkpoints
-```
 
-前一组迁移负责业务表，最后一条负责 LangGraph 检查点表。两者都要初始化，应用账号需要在该数据库中创建 schema 和表的权限。
-
-仓库里的 `scripts/postgres.ps1` 是原开发环境的启停脚本，默认目录在 E 盘。自行安装的 PostgreSQL 可以直接用自己的服务管理方式，不必照搬这个路径。
-
-### 3. 员工账号
-
-```powershell
 uv run python -m src.database.employees --username manager01 --role manager
 uv run python -m src.database.employees --username sales01 --role sales
 ```
 
-在终端按提示设置密码，长度为 12～128 位。没有默认登录密码，也没有开放注册页面。销售账号用来发起报价，经理账号用来审核。
+员工密码由终端交互设置，没有默认密码。业务表与 LangGraph 检查点表需要分别初始化。
 
-### 4. 前端和后端
-
-先构建前端：
+### 构建页面并启动
 
 ```powershell
-$env:npm_config_cache = Join-Path (Get-Location) ".cache/npm"
 Set-Location frontend
 npm ci
 npm run build
 Set-Location ..
-```
 
-再启动后端：
-
-```powershell
 uv run uvicorn src.api_view.app:app --host 127.0.0.1 --port 18080
 ```
 
 - 工作台：<http://127.0.0.1:18080/>
-- 接口文档：<http://127.0.0.1:18080/docs>
+- API 文档：<http://127.0.0.1:18080/docs>
 
-构建后的页面由 FastAPI 提供，后端默认会带一个任务 Worker。前端开发时可以在 `frontend` 目录另开终端运行 `npm run dev`，访问 5173；它会把 API 请求转发到 18080。
+构建后的页面由 FastAPI 提供。前端开发时可在 `frontend` 目录另开终端运行 `npm run dev`，访问 5173。
 
-首次运行没有库存，需要先在“车辆资料”里录入车辆，再上传对应报告。也可以从接口文档登录授权后调用 `POST /api/vehicles`。
+首次运行需先在“车辆资料”页录入车辆，再上传对应报告。多步骤任务在工作台选择“任务协作”；只查询库存或解读报告时，可直接选择相应功能。
 
-## 测试和评估
+## 项目结构
 
-隔离测试和技能路由检查：
+```text
+Chexu/
+├─ src/
+│  ├─ agent/          # LangGraph、运行时、技能、规划、上下文与工具
+│  ├─ api_view/       # FastAPI 路由与认证
+│  ├─ services/       # 任务、库存、审批、记忆、搜索等服务
+│  ├─ domain/         # 数据结构和业务约束
+│  ├─ database/       # ORM、迁移连接、检查点与员工管理
+│  ├─ mcp/            # 报告解析客户端和服务端
+│  ├─ reports/        # 文件校验、存储与解析
+│  ├─ evaluation/     # 真实任务评估
+│  └─ security.py     # 密码与令牌处理
+├─ frontend/          # React 工作台
+├─ skills/            # 技能元数据与执行说明
+├─ migrations/        # Alembic 数据库迁移
+├─ tests/             # 隔离测试与集成检查
+├─ evals/             # 评估任务和样本
+├─ fixtures/          # 固定样例资料
+├─ scripts/           # 启动辅助与评估脚本
+├─ docs/              # 运行说明与开发记录
+├─ .env.example
+├─ pyproject.toml
+└─ uv.lock
+```
+
+## 测试与评估
 
 ```powershell
 uv run python -m unittest discover -s tests -p "test_*.py" -q
 uv run python scripts/evaluate_skills.py
-```
-
-数据库集成检查需要 PostgreSQL，建议使用单独的测试数据库配置：
-
-```powershell
-uv run python -m unittest discover -s tests/integration -p "test_*.py" -q
-```
-
-真实模型评估单独运行，不需要先启动后端：
-
-```powershell
 uv run python scripts/evaluate_tasks.py --list
-uv run python scripts/evaluate_tasks.py --limit 3 --max-model-calls 10
 ```
 
-当前有 9 个任务场景，覆盖库存、对比、报价、审批、报告、记忆、长对话和规划。评估会创建临时业务及检查点 schema，结束后清理，结果保存在 `data/evals/`。它使用 `.env` 中的模型，会产生调用费用。Tavily 搜索还没有纳入这组真实任务评估。
+真实模型评估集包含 9 个场景，覆盖库存筛选、车辆对比、报价、审批恢复、报告引用、记忆、长对话和多 Agent 规划。运行实际评估会调用配置的模型，结果保存在 `data/evals/`；联网检索尚未纳入这组场景。
 
-测试里的模型和工具替身用来检查程序流程，真实评估才会调用模型。两类结果要分开看；报告引用和回答内容也仍需要人工复核。
+评估检查数据库事实、操作结果和原文引用，语义质量仍需人工复核。数据库集成检查及评估命令见 [本地开发与验证](docs/development/local-run.md#测试和评估)。
 
-## 还没做的部分
+## 能力范围
 
-当前按单门店开发，尚未做多租户隔离。报告没有 OCR，扫描件需要先转成可提取文本的文件。外部行情目前只有网页搜索，没有接专业估值、VIN 车史或真实成交数据。
+当前按单门店场景实现。个人记忆属于登录员工，尚未扩展成客户档案；报告解析支持可提取文本的文件，暂不包含 OCR。
 
-也没有开放任意代码执行或终端操作，本地 MCP 只是报告解析进程。部署目前以本地运行为主，压测、集中监控和备份恢复还需要继续补。
+外部数据来自公开网页搜索，尚未接入专业估值、VIN 车史或真实成交行情。报告片段与网页来源可供核对，不能代替车辆实检或专业估值。
 
-## 几个运行时容易遇到的问题
-
-- 模型报连接错误时，先检查地址和密钥。如果环境代理不可用、直连正常，可以设置 `CHEXU_MODEL_USE_ENV_PROXY=false`。Tavily 有独立的代理开关，修改后都需要重启后端。
-- 页面看不到工作台时，检查是否生成了 `frontend/dist/index.html`，以及是否在构建后启动了后端。
-- 18080 被占用时，先确认是不是已经开着一个后端进程。修改后端端口时，也要改 `frontend/vite.config.ts` 中的代理目标。
-
-`.env`、上传资料、日志、缓存、依赖目录和构建结果已放进 [`.gitignore`](.gitignore)。公开仓库保留 `.env.example` 和依赖锁文件即可；样例文件和截图上传前需要去掉个人或客户信息。
+项目未开放任意代码执行，MCP 仅承担本地报告解析。多租户、集中监控、备份恢复及部署压测仍需按实际使用环境补充。
