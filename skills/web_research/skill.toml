@@ -1,0 +1,7 @@
+id = "web_research"
+version = "1.0.0"
+description = "通过 Tavily 搜索公开车型资料、行业新闻、政策和网页行情参考，并提供可回溯的来源链接。"
+tools = ["search_web"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 3

@@ -1,0 +1,7 @@
+id = "quote_assist"
+version = "1.0.0"
+description = "生成报价预览，或按用户明确要求提交经理审批。"
+tools = ["get_vehicle", "search_vehicles", "create_quote_draft", "request_quote_approval"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 6

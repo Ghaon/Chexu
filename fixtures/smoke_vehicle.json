@@ -1,0 +1,7 @@
+{
+  "vehicle_id": "DEMO-001",
+  "title": "示例 SUV · 2.0L 自动",
+  "price_cny": 96800,
+  "mileage_km": 64000,
+  "is_demo": true
+}

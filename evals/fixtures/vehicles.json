@@ -1,0 +1,6 @@
+[
+  {"vehicle_id":"EVAL-001","title":"评估模拟车源A：紧凑型轿车","price_cny":86000,"mileage_km":52000,"is_demo":true},
+  {"vehicle_id":"EVAL-002","title":"评估模拟车源B：家用轿车","price_cny":98000,"mileage_km":70000,"is_demo":true},
+  {"vehicle_id":"EVAL-003","title":"评估模拟车源C：低里程SUV","price_cny":128000,"mileage_km":40000,"is_demo":true},
+  {"vehicle_id":"EVAL-004","title":"评估模拟车源D：高里程轿车","price_cny":88000,"mileage_km":110000,"is_demo":true}
+]

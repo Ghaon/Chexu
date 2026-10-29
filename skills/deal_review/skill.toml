@@ -1,0 +1,7 @@
+id = "deal_review"
+version = "2.1.0"
+description = "规划车辆任务并委派独立子 Agent，支持依赖步骤、只读并行、资料续接和受控重规划。"
+tools = []
+enabled = true
+max_model_calls = 16
+max_tool_calls = 24

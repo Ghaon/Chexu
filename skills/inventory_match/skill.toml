@@ -1,0 +1,7 @@
+id = "inventory_match"
+version = "1.0.0"
+description = "按预算、里程筛选库存，或按编号查询车辆事实。"
+tools = ["get_vehicle", "search_vehicles"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 6

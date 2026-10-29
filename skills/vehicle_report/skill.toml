@@ -1,0 +1,7 @@
+id = "vehicle_report"
+version = "1.1.0"
+description = "读取库存车辆关联的检测与维保资料，基于原文片段解释车况记录并列出待核实事项。"
+tools = ["get_vehicle", "list_vehicle_reports", "read_vehicle_report", "finalize_vehicle_report"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 6

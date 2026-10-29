@@ -1,0 +1,22 @@
+{"message":"找一下十万元以内的库存车辆", "expected":"inventory_match"}
+{"message":"里程不超过六万公里有哪些", "expected":"inventory_match"}
+{"message":"比较刚才第一辆和第二辆", "expected":"vehicle_compare"}
+{"message":"这两辆有什么区别", "expected":"vehicle_compare"}
+{"message":"预算有限，哪辆更适合", "expected":"vehicle_compare"}
+{"message":"帮我生成这辆车的报价", "expected":"quote_assist"}
+{"message":"优惠两千元，提交经理审批", "expected":"quote_assist"}
+{"message":"继续调整", "previous":"quote_assist", "expected":"quote_assist"}
+{"message":"你好", "expected":"inventory_match"}
+{"message":"帮我生成报价", "explicit":"inventory_match", "expected":"inventory_match"}
+{"message":"看看库存", "previous":"quote_assist", "expected":"inventory_match"}
+{"message":"对比这两辆车的报价", "expected":"quote_assist"}
+{"message":"解读这辆车的检测报告", "expected":"vehicle_report"}
+{"message":"左前翼子板补漆说明什么", "expected":"vehicle_report"}
+{"message":"比较这两辆车的车况资料", "expected":"vehicle_report"}
+{"message":"比较EVAL-001和EVAL-003的售价和里程，不要推断未知车况。", "expected":"vehicle_compare"}
+{"message":"继续看下一段", "previous":"vehicle_report", "expected":"vehicle_report"}
+{"message":"找车、解读报告、比较后给出报价预览", "explicit":"deal_review", "expected":"deal_review"}
+{"message": "请联网搜索卡罗拉二手车价格", "expected": "web_research"}
+{"message": "网上查一下最近的二手车政策", "expected": "web_research"}
+{"message": "不要联网，只查询门店库存", "expected": "inventory_match"}
+{"message": "查一下市场行情", "expected": "web_research"}

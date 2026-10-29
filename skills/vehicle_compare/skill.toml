@@ -1,0 +1,7 @@
+id = "vehicle_compare"
+version = "1.0.0"
+description = "查询并对比多辆车的价格、里程及已知资料。"
+tools = ["get_vehicle", "search_vehicles"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 6

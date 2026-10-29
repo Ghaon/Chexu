@@ -1,0 +1,7 @@
+id = "user_memory"
+version = "1.0.0"
+description = "查看用户已确认的预算、用途和偏好，或按明确要求提出待确认记忆。"
+tools = ["propose_user_memory"]
+enabled = true
+max_model_calls = 4
+max_tool_calls = 3
